@@ -22,4 +22,6 @@ export type MessageType =
   | { action: 'state-changed'; state: ExtensionState }
   | { action: 'check-mic-permission' }
   | { action: 'mic-permission-result'; granted: boolean }
-  | { action: 'open-welcome' };
+  | { action: 'open-welcome' }
+  | { action: 'recording-complete'; audioBase64: string; mimeType: string }
+  | { action: 'shortcut-release-complete'; screenshotUrl: string };
