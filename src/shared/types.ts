@@ -24,4 +24,8 @@ export type MessageType =
   | { action: 'mic-permission-result'; granted: boolean }
   | { action: 'open-welcome' }
   | { action: 'recording-complete'; audioBase64: string; mimeType: string }
-  | { action: 'shortcut-release-complete'; screenshotUrl: string };
+  | { action: 'shortcut-release-complete'; screenshotUrl: string }
+  | { action: 'pipeline-stage'; stage: 'transcribing' | 'thinking' | 'streaming' | 'complete' | 'error'; transcript?: string }
+  | { action: 'stream-chunk'; text: string }
+  | { action: 'stream-complete'; fullText: string }
+  | { action: 'pipeline-error'; error: string };

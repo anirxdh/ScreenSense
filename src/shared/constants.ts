@@ -10,4 +10,5 @@ export const STORAGE_KEYS = {
   SETTINGS: 'screensense-settings',
   SETUP_COMPLETE: 'screensense-setup-complete',
   MIC_GRANTED: 'screensense-mic-granted',
+  API_KEYS: 'screensense-api-keys',
 } as const;
