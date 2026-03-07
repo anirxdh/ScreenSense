@@ -2,6 +2,7 @@ import './content.css';
 import { initShortcutHandler } from './shortcut-handler';
 import { AudioRecorder } from './audio-recorder';
 import { ListeningIndicator } from './listening-indicator';
+import { Overlay } from './overlay';
 import { getSettings } from '../shared/storage';
 
 const isTopFrame = window === window.top;
@@ -17,6 +18,7 @@ if (!isTopFrame) {
 let recorder: AudioRecorder | null = null;
 let isRecording = false;
 const indicator = new ListeningIndicator();
+const overlay = new Overlay();
 let mouseMoveHandler: ((e: MouseEvent) => void) | null = null;
 
 let lastCursorX = 0;
@@ -82,6 +84,9 @@ async function handleAutoStop(): Promise<void> {
   indicator.hide();
   stopCursorTracking();
 
+  // Show overlay immediately at cursor position (before pipeline results arrive)
+  overlay.show(lastCursorX, lastCursorY);
+
   // Stop recording and send data
   await handleRelease();
 
@@ -104,6 +109,11 @@ async function onHold(event: Event): Promise<void> {
   const detail = (event as CustomEvent).detail;
   lastCursorX = detail.cursorX;
   lastCursorY = detail.cursorY;
+
+  // Dismiss any existing overlay on re-invoke
+  if (overlay.isVisible()) {
+    overlay.dismiss();
+  }
 
   if (isRecording) return;
 
@@ -147,14 +157,26 @@ async function onRelease(event: Event): Promise<void> {
   indicator.hide();
   stopCursorTracking();
 
+  // Show overlay immediately at cursor position (before pipeline results arrive)
+  overlay.show(lastCursorX, lastCursorY);
+
   // Stop recording and send data
   await handleRelease();
 }
 
-// Listen for messages from background (e.g., screenshot confirmation)
+// Listen for messages from background (pipeline stages, streaming, errors)
 chrome.runtime.onMessage.addListener((message) => {
   if (message.action === 'shortcut-release-complete') {
     console.log('[ScreenSense] Screenshot captured, length:', message.screenshotUrl?.length);
+  } else if (message.action === 'pipeline-stage') {
+    overlay.updateStage(message.stage, message.transcript);
+  } else if (message.action === 'stream-chunk') {
+    overlay.appendChunk(message.text);
+  } else if (message.action === 'stream-complete') {
+    // Overlay already has full text from chunks -- no action needed
+    console.log('[ScreenSense] Stream complete');
+  } else if (message.action === 'pipeline-error') {
+    overlay.showError(message.error);
   }
 });
 
