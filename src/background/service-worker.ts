@@ -1,6 +1,7 @@
 import { ExtensionState, MessageType } from '../shared/types';
 
 let currentState: ExtensionState = 'idle';
+let lastScreenshotDataUrl: string | undefined;
 
 function openWelcomeTab(): void {
   const welcomeUrl = chrome.runtime.getURL('welcome.html');
@@ -32,6 +33,7 @@ chrome.runtime.onMessage.addListener(
         currentState = 'processing';
         broadcastStateChange(currentState);
         captureScreenshot().then((dataUrl) => {
+          lastScreenshotDataUrl = dataUrl;
           console.log('[ScreenSense] Screenshot captured, length:', dataUrl?.length);
           currentState = 'idle';
           broadcastStateChange(currentState);

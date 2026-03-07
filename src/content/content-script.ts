@@ -1,4 +1,7 @@
 import './content.css';
+import { initShortcutHandler } from './shortcut-handler';
 
-// Shortcut handler will be initialized in Task 2
+// Initialize shortcut detection
+initShortcutHandler();
+
 console.log('[ScreenSense] Content script loaded');
