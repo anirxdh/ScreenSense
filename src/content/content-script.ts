@@ -1,10 +1,16 @@
 import './content.css';
 import { initShortcutHandler } from './shortcut-handler';
 import { AudioRecorder } from './audio-recorder';
+import { ListeningIndicator } from './listening-indicator';
 import { getSettings } from '../shared/storage';
 
 let recorder: AudioRecorder | null = null;
 let isRecording = false;
+const indicator = new ListeningIndicator();
+let mouseMoveHandler: ((e: MouseEvent) => void) | null = null;
+
+let lastCursorX = 0;
+let lastCursorY = 0;
 
 function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -20,75 +26,23 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-async function handleAutoStop(): Promise<void> {
-  // Auto-stop mimics the natural release flow
-  if (!recorder || !isRecording) return;
-
-  try {
-    const audioBlob = await recorder.stop();
-    isRecording = false;
-
-    const audioBase64 = await blobToBase64(audioBlob);
-
-    // Send recording data to background
-    chrome.runtime.sendMessage({
-      action: 'recording-complete',
-      audioBase64,
-      mimeType: audioBlob.type,
-    });
-
-    // Trigger release in background (captures screenshot)
-    const cursorX = lastCursorX;
-    const cursorY = lastCursorY;
-    chrome.runtime.sendMessage({
-      action: 'shortcut-release',
-      cursorX,
-      cursorY,
-    });
-
-    // Dispatch release event for UI cleanup
-    document.dispatchEvent(
-      new CustomEvent('screensense-release', {
-        detail: { cursorX, cursorY },
-      })
-    );
-  } catch (err) {
-    console.error('[ScreenSense] Auto-stop error:', err);
-    isRecording = false;
-  }
-
-  recorder = null;
+function startCursorTracking(): void {
+  mouseMoveHandler = (e: MouseEvent) => {
+    lastCursorX = e.clientX;
+    lastCursorY = e.clientY;
+    indicator.updatePosition(e.clientX, e.clientY);
+  };
+  document.addEventListener('mousemove', mouseMoveHandler, { passive: true });
 }
 
-let lastCursorX = 0;
-let lastCursorY = 0;
-
-async function onHold(event: Event): Promise<void> {
-  const detail = (event as CustomEvent).detail;
-  lastCursorX = detail.cursorX;
-  lastCursorY = detail.cursorY;
-
-  if (isRecording) return;
-
-  try {
-    const settings = await getSettings();
-    recorder = new AudioRecorder();
-    isRecording = true;
-
-    await recorder.start({
-      maxDurationMs: settings.maxRecordingMs,
-      onAutoStop: handleAutoStop,
-    });
-
-    console.log('[ScreenSense] Recording started');
-  } catch (err) {
-    console.error('[ScreenSense] Failed to start recording:', err);
-    isRecording = false;
-    recorder = null;
+function stopCursorTracking(): void {
+  if (mouseMoveHandler) {
+    document.removeEventListener('mousemove', mouseMoveHandler);
+    mouseMoveHandler = null;
   }
 }
 
-async function onRelease(_event: Event): Promise<void> {
+async function handleRelease(): Promise<void> {
   if (!recorder || !isRecording) return;
 
   try {
@@ -111,6 +65,80 @@ async function onRelease(_event: Event): Promise<void> {
   }
 
   recorder = null;
+}
+
+async function handleAutoStop(): Promise<void> {
+  // Hide indicator and stop cursor tracking
+  indicator.hide();
+  stopCursorTracking();
+
+  // Stop recording and send data
+  await handleRelease();
+
+  // Trigger release in background (captures screenshot)
+  chrome.runtime.sendMessage({
+    action: 'shortcut-release',
+    cursorX: lastCursorX,
+    cursorY: lastCursorY,
+  });
+
+  // Dispatch release event so shortcut-handler resets its state
+  document.dispatchEvent(
+    new CustomEvent('screensense-release', {
+      detail: { cursorX: lastCursorX, cursorY: lastCursorY, autoStop: true },
+    })
+  );
+}
+
+async function onHold(event: Event): Promise<void> {
+  const detail = (event as CustomEvent).detail;
+  lastCursorX = detail.cursorX;
+  lastCursorY = detail.cursorY;
+
+  if (isRecording) return;
+
+  try {
+    const settings = await getSettings();
+    recorder = new AudioRecorder();
+    isRecording = true;
+
+    // Show the waveform indicator
+    indicator.show(lastCursorX, lastCursorY);
+
+    // Start cursor tracking for indicator
+    startCursorTracking();
+
+    // Start recording with amplitude callback for waveform visualization
+    await recorder.start({
+      maxDurationMs: settings.maxRecordingMs,
+      onAmplitude: (data: Uint8Array) => {
+        indicator.updateAmplitude(data);
+      },
+      onAutoStop: handleAutoStop,
+    });
+
+    console.log('[ScreenSense] Recording started');
+  } catch (err) {
+    console.error('[ScreenSense] Failed to start recording:', err);
+    isRecording = false;
+    recorder = null;
+    indicator.hide();
+    stopCursorTracking();
+  }
+}
+
+async function onRelease(event: Event): Promise<void> {
+  const detail = (event as CustomEvent).detail;
+
+  // If this is an auto-stop synthetic release, skip (already handled)
+  if (detail?.autoStop) return;
+
+  // Hide the waveform indicator
+  indicator.hide();
+  stopCursorTracking();
+
+  // Stop recording and send data
+  await handleRelease();
 }
 
 // Listen for shortcut custom events
