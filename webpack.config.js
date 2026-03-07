@@ -37,7 +37,10 @@ module.exports = {
       filename: '[name].css',
     }),
     new CopyWebpackPlugin({
-      patterns: [{ from: 'manifest.json', to: 'manifest.json' }],
+      patterns: [
+        { from: 'manifest.json', to: 'manifest.json' },
+        { from: 'public/icons', to: 'icons' },
+      ],
     }),
     new HtmlWebpackPlugin({
       template: './src/welcome/welcome.html',

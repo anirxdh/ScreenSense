@@ -34,7 +34,10 @@ const Popup: React.FC = () => {
 
   return (
     <div className="w-72 p-4 bg-gray-800">
-      <h1 className="text-base font-bold text-white mb-3">ScreenSense Voice</h1>
+      <div className="flex items-center gap-2 mb-3">
+        <img src={chrome.runtime.getURL('icons/icon-48.png')} alt="" className="w-6 h-6 rounded" />
+        <h1 className="text-base font-bold text-white">ScreenSense Voice</h1>
+      </div>
 
       {!setupDone && (
         <div className="bg-yellow-900/50 border border-yellow-500/50 rounded-lg p-3 mb-3">

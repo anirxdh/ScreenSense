@@ -4,6 +4,16 @@ import { AudioRecorder } from './audio-recorder';
 import { ListeningIndicator } from './listening-indicator';
 import { getSettings } from '../shared/storage';
 
+const isTopFrame = window === window.top;
+
+// Shortcut handler runs in ALL frames (needed for Google Docs iframes)
+initShortcutHandler();
+
+// Everything below only runs in the top frame
+if (!isTopFrame) {
+  // Stop here for iframes — shortcut handler is enough
+} else {
+
 let recorder: AudioRecorder | null = null;
 let isRecording = false;
 const indicator = new ListeningIndicator();
@@ -141,11 +151,17 @@ async function onRelease(event: Event): Promise<void> {
   await handleRelease();
 }
 
+// Listen for messages from background (e.g., screenshot confirmation)
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.action === 'shortcut-release-complete') {
+    console.log('[ScreenSense] Screenshot captured, length:', message.screenshotUrl?.length);
+  }
+});
+
 // Listen for shortcut custom events
 document.addEventListener('screensense-hold', onHold);
 document.addEventListener('screensense-release', onRelease);
 
-// Initialize shortcut detection
-initShortcutHandler();
-
 console.log('[ScreenSense] Content script loaded');
+
+} // end isTopFrame

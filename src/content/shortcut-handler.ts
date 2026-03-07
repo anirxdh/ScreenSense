@@ -31,7 +31,7 @@ function onKeyDown(event: KeyboardEvent): void {
 
   // Prevent the character from being typed
   event.preventDefault();
-  event.stopPropagation();
+  event.stopImmediatePropagation();
 
   // Start the hold delay timer
   holdTimer = setTimeout(() => {
@@ -63,7 +63,7 @@ function onKeyUp(event: KeyboardEvent): void {
   if (event.key !== shortcutKey) return;
 
   event.preventDefault();
-  event.stopPropagation();
+  event.stopImmediatePropagation();
 
   if (holdActive) {
     // Fire release event
