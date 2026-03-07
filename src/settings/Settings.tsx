@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { getSettings, saveSettings } from '../shared/storage';
+import {
+  getSettings,
+  saveSettings,
+  getApiKeys,
+  saveApiKeys,
+} from '../shared/storage';
 import { DEFAULT_SETTINGS } from '../shared/constants';
 import { ExtensionSettings } from '../shared/types';
 
@@ -7,9 +12,15 @@ const Settings: React.FC = () => {
   const [settings, setSettings] = useState<ExtensionSettings | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [elevenlabsKey, setElevenlabsKey] = useState('');
+  const [geminiKey, setGeminiKey] = useState('');
 
   useEffect(() => {
     getSettings().then(setSettings);
+    getApiKeys().then((keys) => {
+      setElevenlabsKey(keys.elevenlabsKey || '');
+      setGeminiKey(keys.geminiKey || '');
+    });
   }, []);
 
   const handleKeyCapture = (e: React.KeyboardEvent) => {
@@ -24,6 +35,10 @@ const Settings: React.FC = () => {
   const handleSave = async () => {
     if (settings) {
       await saveSettings(settings);
+      await saveApiKeys({
+        elevenlabsKey: elevenlabsKey || undefined,
+        geminiKey: geminiKey || undefined,
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     }
@@ -44,7 +59,8 @@ const Settings: React.FC = () => {
     );
   }
 
-  const displayKey = settings.shortcutKey === '`' ? 'Backtick (`)' : settings.shortcutKey;
+  const displayKey =
+    settings.shortcutKey === '`' ? 'Backtick (`)' : settings.shortcutKey;
 
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
@@ -102,6 +118,61 @@ const Settings: React.FC = () => {
           <div className="flex justify-between text-xs text-gray-500 mt-1">
             <span>100ms</span>
             <span>500ms</span>
+          </div>
+        </div>
+
+        {/* API Keys Section */}
+        <div className="mb-6 pt-4 border-t border-gray-700">
+          <h2 className="text-lg font-semibold text-white mb-4">API Keys</h2>
+
+          {/* ElevenLabs API Key */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              ElevenLabs API Key
+            </label>
+            <input
+              type="password"
+              value={elevenlabsKey}
+              onChange={(e) => setElevenlabsKey(e.target.value)}
+              placeholder="Enter your ElevenLabs API key"
+              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Get your key from{' '}
+              <a
+                href="https://elevenlabs.io"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:text-blue-300"
+              >
+                elevenlabs.io
+              </a>
+            </p>
+          </div>
+
+          {/* Gemini API Key */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Gemini API Key
+            </label>
+            <input
+              type="password"
+              value={geminiKey}
+              onChange={(e) => setGeminiKey(e.target.value)}
+              placeholder="Enter your Gemini API key"
+              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Get your key from{' '}
+              <a
+                href="https://aistudio.google.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:text-blue-300"
+              >
+                aistudio.google.com
+              </a>
+            </p>
           </div>
         </div>
 
