@@ -20,43 +20,97 @@
 
 ## The Problem
 
-Every day, millions of people stare at their screens trying to understand something — an error message, a complex UI, a dense paragraph, a piece of code. The workflow is always the same: **copy text, switch tabs, paste into ChatGPT, read the answer, switch back.** Context is lost. Flow is broken. Time is wasted.
+We kept running into the same annoying workflow — see something confusing on screen, take a screenshot, open a new tab, drag it into ChatGPT or Claude, type the question, wait, then switch back. Half the time the screenshots pile up on the desktop. The other half we lose context switching between tabs.
 
-For people with visual impairments or reading difficulties, the problem is even worse — most AI tools are text-first and inaccessible.
-
-## The Solution
-
-**ScreenSense Voice** eliminates the friction entirely. Hold a key, speak your question, and get an AI-powered answer overlaid directly on the page you're looking at. No tab switching. No copy-pasting. No lost context.
-
-The AI **sees your screen** (captures a screenshot at the moment you ask) and **hears your voice** (real-time transcription), then responds with a streaming text overlay and a short spoken summary. It's like having a knowledgeable friend looking over your shoulder, ready to explain anything in 3 seconds.
+**ScreenSense Voice** fixes this. Hold a key, speak your question, get the answer right there on the page. No screenshots. No tab switching. No copy-pasting. Done.
 
 ---
 
-## Demo
+## Walkthrough Video
 
-https://github.com/user-attachments/assets/demo-placeholder
+Watch the full setup and demo walkthrough:
 
-> Hold **`** (backtick) on any webpage, ask a question about what you see, release the key, and get an instant AI-powered answer with voice and text.
+[![ScreenSense Walkthrough](https://img.shields.io/badge/▶%20Watch%20Walkthrough-YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=eUtELbN1SbI)
+
+> Covers: installation, Chrome setup, API key configuration, and live demos of voice queries, text follow-ups, and conversation memory.
+
+---
+
+## Setup Guide (Step by Step)
+
+### Step 1: Get the code
+
+```bash
+git clone https://github.com/anirxdh/ScreenSense.git
+cd ScreenSense
+npm install
+npm run build
+```
+
+This creates a `dist/` folder — that's what Chrome needs.
+
+### Step 2: Load into Chrome
+
+1. Open your browser and go to **[chrome://extensions/](chrome://extensions/)**
+2. Turn on **Developer mode** (toggle in the top right corner)
+3. Click **"Load unpacked"**
+4. Navigate to the ScreenSense folder you just cloned and select the **`dist/`** folder inside it
+5. You should see the ScreenSense icon appear in your Chrome toolbar
+
+> **Tip:** If you don't see the icon, click the puzzle piece icon in the toolbar and pin ScreenSense.
+
+### Step 3: Get your API keys
+
+You need **one free API key** to get started:
+
+| Key | Required? | Where to get it | Cost |
+|-----|-----------|-----------------|------|
+| **Groq API Key** | Yes | [console.groq.com/keys](https://console.groq.com/keys) | Free |
+| **ElevenLabs API Key** | Optional (for natural voice) | [elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys) | Free tier: 10k chars/month |
+
+### Step 4: Configure the extension
+
+1. Click the **ScreenSense icon** in your toolbar
+2. Click **"Settings"**
+3. Paste your **Groq API Key** (required)
+4. Optionally paste your **ElevenLabs API Key** (for natural-sounding voice — without it, the browser's built-in voice is used)
+5. Choose your **Display Mode**:
+   - **Both** — streaming text overlay + short spoken summary (default)
+   - **Audio Only** — animated waveform with spoken summary, no text
+   - **Text Only** — streaming text, no audio
+6. Choose your **Explanation Level** (Kid, Student, College, PhD, or Executive)
+7. Click **Save Changes**
+
+### Step 5: Use it!
+
+1. Go to **any webpage**
+2. **Hold the backtick key** (`` ` ``) — a waveform appears near your cursor
+3. **Ask your question** while holding the key (e.g., *"What does this error mean?"*)
+4. **Release the key** — the AI reads your screen and streams the answer
+5. **Type a follow-up** in the overlay input box, or hold backtick again for another voice question
+6. Press **Escape** to dismiss
+
+That's it. No accounts, no sign-ups, just your free API key and you're good to go.
 
 ---
 
 ## Features
 
 ### Voice-First Interaction
-- **Hold-to-talk**: Press and hold a configurable shortcut key (default: backtick `` ` ``) to start recording
+- **Hold-to-talk**: Press and hold backtick (`` ` ``) to start recording
 - **Real-time waveform**: Animated visualization follows your cursor while recording
-- **Whisper transcription**: Powered by Groq's Whisper Large V3 Turbo for fast, accurate speech-to-text
+- **Whisper transcription**: Groq's Whisper Large V3 Turbo for fast, accurate speech-to-text
 
 ### Screen-Aware AI
 - **Screenshot capture**: Automatically captures what's on your screen when you ask
-- **Vision model**: Uses Llama 4 Scout with vision capabilities to understand screenshots
+- **Vision model**: Llama 4 Scout understands your screenshot
 - **Streaming responses**: Text streams in real-time, word by word
-- **Conversation memory**: Up to 20 turns of follow-up questions per tab with full context
+- **Conversation memory**: Up to 20 follow-up turns per tab with full context
 
 ### Smart Audio Summaries
-- **TTS summaries**: Instead of reading the full response verbatim, the AI generates a concise ~3 second spoken summary of the key takeaway
-- **ElevenLabs voice**: Natural-sounding voice via ElevenLabs API (Rachel voice)
-- **Browser fallback**: Falls back to Web Speech API if no ElevenLabs key is configured
+- **TTS summaries**: AI generates a concise ~3 second spoken summary instead of reading everything
+- **ElevenLabs voice**: Natural-sounding Rachel voice
+- **Browser fallback**: Uses Web Speech API if no ElevenLabs key is set
 
 ### Display Modes
 | Mode | Text Overlay | Audio |
@@ -66,8 +120,6 @@ https://github.com/user-attachments/assets/demo-placeholder
 | **Text Only** | Full streaming text | Silent |
 
 ### Explanation Levels
-Tailor AI responses to your understanding level:
-
 | Level | Style |
 |-------|-------|
 | **Kid** | Simple words, fun comparisons, like explaining to a 5-year-old |
@@ -75,13 +127,6 @@ Tailor AI responses to your understanding level:
 | **College** | Technical terms when needed, accessible explanations |
 | **PhD** | Precise terminology, deep domain knowledge assumed |
 | **Executive** | Concise, impact-focused, trade-offs and strategic implications |
-
-### Overlay UI
-- **Shadow DOM isolation**: Styles never leak to or from the host page
-- **Smart positioning**: Follows cursor during loading, locks when content streams in, edge-aware placement
-- **Follow-up input**: Type follow-up questions directly in the overlay
-- **Context bar**: Shows conversation progress, TTS toggle, and clear button
-- **Escape to dismiss**: Clean keyboard-driven UX
 
 ---
 
@@ -122,14 +167,11 @@ Tailor AI responses to your understanding level:
 ```
 
 ### Data Flow
-1. **User holds shortcut key** → Content script dispatches event → Service worker starts offscreen recording
-2. **User speaks** → Offscreen captures audio + sends amplitude data for live waveform
-3. **User releases key** → Offscreen sends base64 audio → Service worker runs pipeline:
-   - **Stage 1**: Capture screenshot via `chrome.tabs.captureVisibleTab`
-   - **Stage 2**: Transcribe audio via Groq Whisper API
-   - **Stage 3**: Stream response via Groq Vision API (screenshot + transcript + history)
-   - **Stage 4**: Generate TTS summary (fire-and-forget, non-blocking)
-4. **Content script** receives streamed chunks → Overlay renders markdown in real-time
+1. **Hold shortcut key** → Content script → Service worker starts offscreen recording
+2. **Speak** → Offscreen captures audio + sends amplitude for live waveform
+3. **Release key** → Audio → Service worker pipeline:
+   - Capture screenshot → Transcribe audio → Stream AI response → Generate TTS summary
+4. **Content script** renders streamed markdown in real-time
 5. **TTS summary** arrives → Speaks via ElevenLabs or Web Speech API
 
 ---
@@ -147,55 +189,6 @@ Tailor AI responses to your understanding level:
 | **Settings UI** | React 18 |
 | **Build** | Webpack 5, TypeScript, PostCSS |
 | **Landing Page** | Vanilla HTML/CSS/JS with canvas particle animation |
-
----
-
-## Getting Started
-
-### Prerequisites
-- **Node.js** 18+ and **npm**
-- **Google Chrome** (or any Chromium-based browser)
-- **Groq API Key** (free) — [Get one here](https://console.groq.com/keys)
-- **ElevenLabs API Key** (optional, for natural voice) — [Get one here](https://elevenlabs.io/app/settings/api-keys)
-
-### Installation
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/anirxdh/ScreenSense.git
-cd ScreenSense
-
-# 2. Install dependencies
-npm install
-
-# 3. Build the extension
-npm run build
-```
-
-### Load into Chrome
-
-1. Open `chrome://extensions/` in your browser
-2. Enable **Developer mode** (toggle in top right)
-3. Click **Load unpacked**
-4. Select the `dist/` folder from this project
-5. The ScreenSense icon appears in your toolbar
-
-### Configure
-
-1. Click the ScreenSense extension icon → **Settings**
-2. Enter your **Groq API Key** (required)
-3. Optionally enter your **ElevenLabs API Key** (for natural voice)
-4. Choose your **Display Mode** and **Explanation Level**
-5. Click **Save Changes**
-
-### Usage
-
-1. Navigate to any webpage
-2. **Hold the backtick key** (`` ` ``) — you'll see a waveform appear
-3. **Speak your question** while holding the key
-4. **Release the key** — the AI overlay appears with your answer
-5. **Type follow-ups** in the overlay input, or **hold the key again** to ask a new voice question
-6. Press **Escape** to dismiss the overlay
 
 ---
 
@@ -231,9 +224,6 @@ ScreenSense/
 │   ├── popup/                     # Extension popup
 │   └── welcome/                   # First-run onboarding
 ├── landing/                       # Landing page (standalone)
-│   ├── index.html                 # Full landing page
-│   ├── logo.png                   # Icon
-│   └── logo-full.png              # Full logo
 ├── public/
 │   └── icons/                     # Extension icons (16, 48, 128px)
 ├── manifest.json                  # Chrome extension manifest (MV3)
@@ -244,26 +234,12 @@ ScreenSense/
 
 ---
 
-## Development
-
-```bash
-# Watch mode — rebuilds on file changes
-npm run dev
-
-# Production build
-npm run build
-```
-
-After rebuilding, go to `chrome://extensions/` and click the **reload** button on the ScreenSense card to pick up changes.
-
----
-
 ## How It's Different
 
 | Feature | ChatGPT / Copilot | ScreenSense Voice |
 |---------|:-----------------:|:----------------:|
 | Voice input | Requires separate app | Built-in hold-to-talk |
-| Screen context | Must copy/paste or describe | Automatic screenshot |
+| Screen context | Must screenshot & paste | Automatic capture |
 | Response delivery | Separate tab/window | Inline overlay on current page |
 | Audio response | Full text readback | Smart 3-second summary |
 | Explanation levels | One-size-fits-all | 5 levels (Kid → Executive) |
@@ -274,11 +250,11 @@ After rebuilding, go to `chrome://extensions/` and click the **reload** button o
 
 ## Privacy & Security
 
-- **No data stored remotely** — all conversation history is in-memory (per tab) and cleared when the tab closes
-- **API keys stored locally** — saved in `chrome.storage.local`, never transmitted to any server besides the API providers
-- **Shadow DOM isolation** — overlay styles are completely isolated from host pages, preventing CSS injection
+- **No data stored remotely** — conversation history is in-memory per tab, cleared when the tab closes
+- **API keys stored locally** — saved in `chrome.storage.local`, never sent anywhere besides the API providers
+- **Shadow DOM isolation** — overlay styles are completely isolated from host pages
 - **HTML sanitization** — AI responses are sanitized before rendering to prevent XSS
-- **Microphone access** — only active while you hold the shortcut key; recording stops immediately on release
+- **Microphone access** — only active while you hold the shortcut key; stops immediately on release
 
 ---
 
