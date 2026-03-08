@@ -7,6 +7,7 @@ module.exports = {
   entry: {
     background: './src/background/service-worker.ts',
     content: './src/content/content-script.ts',
+    offscreen: './src/offscreen/offscreen.ts',
     welcome: './src/welcome/welcome-entry.tsx',
     popup: './src/popup/popup-entry.tsx',
     settings: './src/settings/settings-entry.tsx',
@@ -40,6 +41,7 @@ module.exports = {
       patterns: [
         { from: 'manifest.json', to: 'manifest.json' },
         { from: 'public/icons', to: 'icons' },
+        { from: 'public/offscreen.html', to: 'offscreen.html' },
       ],
     }),
     new HtmlWebpackPlugin({

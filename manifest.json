@@ -3,7 +3,7 @@
   "name": "ScreenSense Voice",
   "version": "1.0.0",
   "description": "Hold a shortcut, ask a spoken question about anything on your screen, get an instant AI answer.",
-  "permissions": ["activeTab", "tabs", "storage"],
+  "permissions": ["activeTab", "tabs", "storage", "offscreen"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js"

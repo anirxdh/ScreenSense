@@ -39,16 +39,16 @@ export async function setMicPermissionGranted(
 }
 
 export async function getApiKeys(): Promise<{
-  elevenlabsKey?: string;
-  geminiKey?: string;
+  groqKey?: string;
+  elevenLabsKey?: string;
 }> {
   const result = await chrome.storage.local.get(STORAGE_KEYS.API_KEYS);
   return result[STORAGE_KEYS.API_KEYS] || {};
 }
 
 export async function saveApiKeys(keys: {
-  elevenlabsKey?: string;
-  geminiKey?: string;
+  groqKey?: string;
+  elevenLabsKey?: string;
 }): Promise<void> {
   await chrome.storage.local.set({ [STORAGE_KEYS.API_KEYS]: keys });
 }

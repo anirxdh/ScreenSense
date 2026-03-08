@@ -14,6 +14,16 @@ export interface ShortcutEvent {
   cursorY: number;
 }
 
+export interface ConversationTurn {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ConversationInfo {
+  turns: number;
+  maxTurns: number;
+}
+
 export type MessageType =
   | { action: 'shortcut-hold'; cursorX: number; cursorY: number }
   | { action: 'shortcut-release'; cursorX: number; cursorY: number }
@@ -28,4 +38,8 @@ export type MessageType =
   | { action: 'pipeline-stage'; stage: 'transcribing' | 'thinking' | 'streaming' | 'complete' | 'error'; transcript?: string }
   | { action: 'stream-chunk'; text: string }
   | { action: 'stream-complete'; fullText: string }
-  | { action: 'pipeline-error'; error: string };
+  | { action: 'pipeline-error'; error: string }
+  | { action: 'follow-up'; text: string }
+  | { action: 'clear-conversation' }
+  | { action: 'get-conversation-info' }
+  | { action: 'conversation-info'; info: ConversationInfo };

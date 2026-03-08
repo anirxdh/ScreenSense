@@ -12,3 +12,5 @@ export const STORAGE_KEYS = {
   MIC_GRANTED: 'screensense-mic-granted',
   API_KEYS: 'screensense-api-keys',
 } as const;
+
+export const MAX_CONVERSATION_TURNS = 20;

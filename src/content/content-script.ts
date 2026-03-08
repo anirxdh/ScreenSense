@@ -1,9 +1,8 @@
 import './content.css';
 import { initShortcutHandler } from './shortcut-handler';
-import { AudioRecorder } from './audio-recorder';
 import { ListeningIndicator } from './listening-indicator';
 import { Overlay } from './overlay';
-import { getSettings } from '../shared/storage';
+import { stop as stopTts } from './tts';
 
 const isTopFrame = window === window.top;
 
@@ -15,8 +14,6 @@ if (!isTopFrame) {
   // Stop here for iframes — shortcut handler is enough
 } else {
 
-let recorder: AudioRecorder | null = null;
-let isRecording = false;
 const indicator = new ListeningIndicator();
 const overlay = new Overlay();
 let mouseMoveHandler: ((e: MouseEvent) => void) | null = null;
@@ -24,19 +21,17 @@ let mouseMoveHandler: ((e: MouseEvent) => void) | null = null;
 let lastCursorX = 0;
 let lastCursorY = 0;
 
-function blobToBase64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const dataUrl = reader.result as string;
-      // Strip the data:...;base64, prefix
-      const base64 = dataUrl.split(',')[1];
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
+// Wire up overlay callbacks for follow-up and clear
+overlay.setCallbacks(
+  // onFollowUp
+  (text: string) => {
+    chrome.runtime.sendMessage({ action: 'follow-up', text });
+  },
+  // onClear
+  () => {
+    chrome.runtime.sendMessage({ action: 'clear-conversation' });
+  }
+);
 
 function startCursorTracking(): void {
   mouseMoveHandler = (e: MouseEvent) => {
@@ -54,97 +49,19 @@ function stopCursorTracking(): void {
   }
 }
 
-async function handleRelease(): Promise<void> {
-  if (!recorder || !isRecording) return;
-
-  try {
-    const audioBlob = await recorder.stop();
-    isRecording = false;
-
-    console.log('[ScreenSense] Recording stopped, blob size:', audioBlob.size);
-
-    const audioBase64 = await blobToBase64(audioBlob);
-
-    // Send recording data to background
-    chrome.runtime.sendMessage({
-      action: 'recording-complete',
-      audioBase64,
-      mimeType: audioBlob.type,
-    });
-  } catch (err) {
-    console.error('[ScreenSense] Failed to stop recording:', err);
-    isRecording = false;
-  }
-
-  recorder = null;
-}
-
-async function handleAutoStop(): Promise<void> {
-  // Hide indicator and stop cursor tracking
-  indicator.hide();
-  stopCursorTracking();
-
-  // Show overlay immediately at cursor position (before pipeline results arrive)
-  overlay.show(lastCursorX, lastCursorY);
-
-  // Stop recording and send data
-  await handleRelease();
-
-  // Trigger release in background (captures screenshot)
-  chrome.runtime.sendMessage({
-    action: 'shortcut-release',
-    cursorX: lastCursorX,
-    cursorY: lastCursorY,
-  });
-
-  // Dispatch release event so shortcut-handler resets its state
-  document.dispatchEvent(
-    new CustomEvent('screensense-release', {
-      detail: { cursorX: lastCursorX, cursorY: lastCursorY, autoStop: true },
-    })
-  );
-}
-
 async function onHold(event: Event): Promise<void> {
   const detail = (event as CustomEvent).detail;
   lastCursorX = detail.cursorX;
   lastCursorY = detail.cursorY;
 
-  // Dismiss any existing overlay on re-invoke
-  if (overlay.isVisible()) {
-    overlay.dismiss();
-  }
+  // Stop TTS when user starts recording again
+  stopTts();
 
-  if (isRecording) return;
+  // Show the waveform indicator
+  indicator.show(lastCursorX, lastCursorY);
 
-  try {
-    const settings = await getSettings();
-    recorder = new AudioRecorder();
-    isRecording = true;
-
-    // Show the waveform indicator
-    indicator.show(lastCursorX, lastCursorY);
-
-    // Start cursor tracking for indicator
-    startCursorTracking();
-
-    // Start recording with amplitude callback for waveform visualization
-    await recorder.start({
-      maxDurationMs: settings.maxRecordingMs,
-      onAmplitude: (data: Uint8Array) => {
-        indicator.updateAmplitude(data);
-      },
-      onAutoStop: handleAutoStop,
-    });
-
-    console.log('[ScreenSense] Recording started');
-  } catch (err) {
-    console.error('[ScreenSense] Failed to start recording:', err);
-    isRecording = false;
-    recorder = null;
-    indicator.hide();
-    stopCursorTracking();
-  }
+  // Start cursor tracking for indicator
+  startCursorTracking();
 }
 
 async function onRelease(event: Event): Promise<void> {
@@ -157,26 +74,30 @@ async function onRelease(event: Event): Promise<void> {
   indicator.hide();
   stopCursorTracking();
 
-  // Show overlay immediately at cursor position (before pipeline results arrive)
-  overlay.show(lastCursorX, lastCursorY);
-
-  // Stop recording and send data
-  await handleRelease();
+  // If overlay is visible (voice follow-up), prepare it for new content
+  if (overlay.isVisible()) {
+    overlay.prepareForFollowUp();
+  } else {
+    // Show overlay at cursor position
+    overlay.show(lastCursorX, lastCursorY);
+  }
 }
 
-// Listen for messages from background (pipeline stages, streaming, errors)
+// Listen for messages from background (pipeline stages, streaming, errors, amplitude)
 chrome.runtime.onMessage.addListener((message) => {
-  if (message.action === 'shortcut-release-complete') {
-    console.log('[ScreenSense] Screenshot captured, length:', message.screenshotUrl?.length);
-  } else if (message.action === 'pipeline-stage') {
+  if (message.action === 'pipeline-stage') {
     overlay.updateStage(message.stage, message.transcript);
   } else if (message.action === 'stream-chunk') {
     overlay.appendChunk(message.text);
   } else if (message.action === 'stream-complete') {
-    // Overlay already has full text from chunks -- no action needed
-    console.log('[ScreenSense] Stream complete');
+    overlay.onStreamComplete();
   } else if (message.action === 'pipeline-error') {
     overlay.showError(message.error);
+  } else if (message.action === 'conversation-info') {
+    overlay.updateConversationInfo(message.info);
+  } else if (message.action === 'amplitude-data') {
+    // Forward amplitude data to the waveform indicator
+    indicator.updateAmplitude(new Uint8Array(message.data));
   }
 });
 
