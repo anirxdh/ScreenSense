@@ -97,11 +97,17 @@ export async function speak(text: string): Promise<void> {
   if (!enabled) return;
   stop();
 
-  const keys = await getApiKeys();
-  if (keys.elevenLabsKey) {
-    await speakElevenLabs(text, keys.elevenLabsKey);
-  } else {
-    speakWebSpeech(text);
+  try {
+    const keys = await getApiKeys();
+    if (keys.elevenLabsKey) {
+      await speakElevenLabs(text, keys.elevenLabsKey);
+    } else {
+      speakWebSpeech(text);
+    }
+  } catch (err) {
+    console.warn('[ScreenSense] TTS error:', err);
+    // Last resort fallback
+    try { speakWebSpeech(text); } catch { /* silent */ }
   }
 }
 

@@ -39,12 +39,12 @@ function onKeyDown(event: KeyboardEvent): void {
 
     if (!micPermissionCached) {
       // Mic not granted -- open welcome tab instead
-      chrome.runtime.sendMessage({ action: 'open-welcome' });
+      sendMsg({ action: 'open-welcome' });
       return;
     }
 
     // Fire hold event
-    chrome.runtime.sendMessage({
+    sendMsg({
       action: 'shortcut-hold',
       cursorX,
       cursorY,
@@ -67,7 +67,7 @@ function onKeyUp(event: KeyboardEvent): void {
 
   if (holdActive) {
     // Fire release event
-    chrome.runtime.sendMessage({
+    sendMsg({
       action: 'shortcut-release',
       cursorX,
       cursorY,
@@ -143,6 +143,11 @@ function onStorageChanged(
   if (changes['screensense-mic-granted']) {
     micPermissionCached = changes['screensense-mic-granted'].newValue === true;
   }
+}
+
+// Safe message sender — prevents unhandled promise rejections in MV3
+function sendMsg(msg: Record<string, unknown>): void {
+  chrome.runtime.sendMessage(msg).catch(() => {});
 }
 
 export function initShortcutHandler(): void {

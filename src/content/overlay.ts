@@ -1,6 +1,7 @@
 import { renderMarkdown } from './markdown';
-import { ConversationInfo } from '../shared/types';
-import { speak, stop as stopTts, isTtsEnabled, setTtsEnabled } from './tts';
+import { ConversationInfo, DisplayMode } from '../shared/types';
+import { speak, stop as stopTts, isTtsEnabled, setTtsEnabled, isSpeaking } from './tts';
+import { getSettings } from '../shared/storage';
 
 // SVG wave icon for TTS toggle
 const WAVE_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -326,6 +327,49 @@ const OVERLAY_STYLES = `
     transform: scale(1.1);
   }
 }
+
+/* ─── Audio-only speaking waveform ─── */
+.screensense-speaking-wave {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 16px 0;
+}
+
+.screensense-speaking-wave .wave-bar {
+  width: 4px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(165, 180, 252, 0.9), rgba(129, 140, 248, 0.6));
+  animation: screensense-wave-bar 1.2s ease-in-out infinite;
+}
+
+.screensense-speaking-wave .wave-bar:nth-child(1)  { height: 8px;  animation-delay: 0s; }
+.screensense-speaking-wave .wave-bar:nth-child(2)  { height: 14px; animation-delay: 0.1s; }
+.screensense-speaking-wave .wave-bar:nth-child(3)  { height: 20px; animation-delay: 0.15s; }
+.screensense-speaking-wave .wave-bar:nth-child(4)  { height: 26px; animation-delay: 0.2s; }
+.screensense-speaking-wave .wave-bar:nth-child(5)  { height: 32px; animation-delay: 0.25s; }
+.screensense-speaking-wave .wave-bar:nth-child(6)  { height: 28px; animation-delay: 0.3s; }
+.screensense-speaking-wave .wave-bar:nth-child(7)  { height: 34px; animation-delay: 0.35s; }
+.screensense-speaking-wave .wave-bar:nth-child(8)  { height: 24px; animation-delay: 0.4s; }
+.screensense-speaking-wave .wave-bar:nth-child(9)  { height: 30px; animation-delay: 0.45s; }
+.screensense-speaking-wave .wave-bar:nth-child(10) { height: 20px; animation-delay: 0.5s; }
+.screensense-speaking-wave .wave-bar:nth-child(11) { height: 26px; animation-delay: 0.55s; }
+.screensense-speaking-wave .wave-bar:nth-child(12) { height: 16px; animation-delay: 0.6s; }
+.screensense-speaking-wave .wave-bar:nth-child(13) { height: 10px; animation-delay: 0.65s; }
+
+@keyframes screensense-wave-bar {
+  0%, 100% { transform: scaleY(0.4); opacity: 0.5; }
+  50%      { transform: scaleY(1);   opacity: 1; }
+}
+
+.screensense-speaking-label {
+  text-align: center;
+  font-size: 11px;
+  color: rgba(165, 180, 252, 0.5);
+  margin-top: 4px;
+  letter-spacing: 0.05em;
+}
 `;
 
 const STAGE_LABELS: Record<string, string> = {
@@ -354,8 +398,10 @@ export class Overlay {
   private escapeHandler: ((e: KeyboardEvent) => void) | null = null;
   private mouseMoveHandler: ((e: MouseEvent) => void) | null = null;
   private autoDismissTimer: ReturnType<typeof setTimeout> | null = null;
+  private ttsPollTimer: ReturnType<typeof setInterval> | null = null;
   private onFollowUp: ((text: string) => void) | null = null;
   private onClear: (() => void) | null = null;
+  private displayMode: DisplayMode = 'both';
 
   setCallbacks(onFollowUp: (text: string) => void, onClear: () => void): void {
     this.onFollowUp = onFollowUp;
@@ -367,6 +413,11 @@ export class Overlay {
     if (this.visible) {
       this.dismissImmediate();
     }
+
+    // Read display mode in background (non-blocking so DOM is created immediately)
+    getSettings().then(settings => {
+      this.displayMode = settings.displayMode;
+    });
 
     // Create host container
     this.container = document.createElement('div');
@@ -421,20 +472,16 @@ export class Overlay {
     this.followupInput.type = 'text';
     this.followupInput.className = 'screensense-followup-input';
     this.followupInput.placeholder = 'Ask a follow-up...';
+    // Single capture-phase listener handles Enter/Escape and blocks shortcut handler
     this.followupInput.addEventListener('keydown', (e: KeyboardEvent) => {
+      e.stopPropagation();
       if (e.key === 'Enter' && this.followupInput?.value.trim()) {
         e.preventDefault();
-        e.stopPropagation();
         this.sendFollowUp();
       }
       if (e.key === 'Escape') {
-        e.stopPropagation();
         this.followupInput?.blur();
       }
-    });
-    // Prevent shortcut handler from capturing keys while typing
-    this.followupInput.addEventListener('keydown', (e: KeyboardEvent) => {
-      e.stopPropagation();
     }, true);
     this.followupInput.addEventListener('keyup', (e: KeyboardEvent) => {
       e.stopPropagation();
@@ -575,6 +622,10 @@ export class Overlay {
     }
 
     this.accumulatedText += text;
+
+    // In audio-only mode, don't render the text
+    if (this.displayMode === 'audio-only') return;
+
     this.responseEl.innerHTML = renderMarkdown(this.accumulatedText);
 
     // Auto-scroll to bottom if user hasn't scrolled up
@@ -587,17 +638,58 @@ export class Overlay {
     }
   }
 
-  /** Called when stream is complete — show the follow-up input and read aloud */
+  /** Called when stream is complete — show the follow-up input */
   onStreamComplete(): void {
-    if (this.followupEl) {
+    // In audio-only mode, hide the text content and show waveform
+    if (this.displayMode === 'audio-only') {
+      if (this.responseEl) {
+        const bars = Array.from({ length: 13 }, () => '<div class="wave-bar"></div>').join('');
+        this.responseEl.innerHTML =
+          `<div class="screensense-speaking-wave">${bars}</div>` +
+          `<div class="screensense-speaking-label">Preparing audio...</div>`;
+      }
+      if (this.transcriptEl) {
+        this.transcriptEl.style.display = 'none';
+      }
+      if (this.historyEl) {
+        this.historyEl.style.display = 'none';
+      }
+      if (this.stageEl) {
+        this.stageEl.style.display = 'none';
+      }
+    }
+
+    if (this.followupEl && this.displayMode !== 'audio-only') {
       this.followupEl.classList.add('visible');
     }
-    if (this.contextBar) {
+    if (this.contextBar && this.displayMode !== 'audio-only') {
       this.contextBar.classList.add('visible');
     }
-    // Read aloud if TTS is enabled
-    if (this.accumulatedText) {
-      speak(this.accumulatedText);
+    // TTS is now triggered by the separate tts-summary message
+  }
+
+  /** Called when TTS summary arrives from the service worker */
+  speakSummary(summary: string): void {
+    if (this.displayMode === 'text-only') return;
+    speak(summary);
+
+    // In audio-only mode, update label and auto-dismiss when TTS finishes
+    if (this.displayMode === 'audio-only') {
+      // Update label to "Speaking..."
+      if (this.responseEl) {
+        const label = this.responseEl.querySelector('.screensense-speaking-label');
+        if (label) label.textContent = 'Speaking...';
+      }
+
+      this.ttsPollTimer = setInterval(() => {
+        if (!isSpeaking()) {
+          if (this.ttsPollTimer) {
+            clearInterval(this.ttsPollTimer);
+            this.ttsPollTimer = null;
+          }
+          this.dismiss();
+        }
+      }, 500);
     }
   }
 
@@ -755,6 +847,11 @@ export class Overlay {
     if (this.autoDismissTimer) {
       clearTimeout(this.autoDismissTimer);
       this.autoDismissTimer = null;
+    }
+
+    if (this.ttsPollTimer) {
+      clearInterval(this.ttsPollTimer);
+      this.ttsPollTimer = null;
     }
 
     if (this.container && this.container.parentNode) {

@@ -21,16 +21,15 @@ let mouseMoveHandler: ((e: MouseEvent) => void) | null = null;
 let lastCursorX = 0;
 let lastCursorY = 0;
 
+// Safe message sender — prevents unhandled promise rejections
+function sendMessage(msg: Record<string, unknown>): void {
+  chrome.runtime.sendMessage(msg).catch(() => {});
+}
+
 // Wire up overlay callbacks for follow-up and clear
 overlay.setCallbacks(
-  // onFollowUp
-  (text: string) => {
-    chrome.runtime.sendMessage({ action: 'follow-up', text });
-  },
-  // onClear
-  () => {
-    chrome.runtime.sendMessage({ action: 'clear-conversation' });
-  }
+  (text: string) => sendMessage({ action: 'follow-up', text }),
+  () => sendMessage({ action: 'clear-conversation' })
 );
 
 function startCursorTracking(): void {
@@ -91,6 +90,8 @@ chrome.runtime.onMessage.addListener((message) => {
     overlay.appendChunk(message.text);
   } else if (message.action === 'stream-complete') {
     overlay.onStreamComplete();
+  } else if (message.action === 'tts-summary') {
+    overlay.speakSummary(message.summary);
   } else if (message.action === 'pipeline-error') {
     overlay.showError(message.error);
   } else if (message.action === 'conversation-info') {

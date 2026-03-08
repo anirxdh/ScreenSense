@@ -1,7 +1,13 @@
+export type DisplayMode = 'both' | 'audio-only' | 'text-only';
+
+export type ExplanationLevel = 'kid' | 'school' | 'college' | 'phd' | 'executive';
+
 export interface ExtensionSettings {
   shortcutKey: string; // default: '`'
   holdDelayMs: number; // default: 200
   maxRecordingMs: number; // default: 60000
+  displayMode: DisplayMode; // default: 'both'
+  explanationLevel: ExplanationLevel; // default: 'college'
 }
 
 export type ExtensionState = 'idle' | 'listening' | 'processing';
@@ -38,6 +44,7 @@ export type MessageType =
   | { action: 'pipeline-stage'; stage: 'transcribing' | 'thinking' | 'streaming' | 'complete' | 'error'; transcript?: string }
   | { action: 'stream-chunk'; text: string }
   | { action: 'stream-complete'; fullText: string }
+  | { action: 'tts-summary'; summary: string }
   | { action: 'pipeline-error'; error: string }
   | { action: 'follow-up'; text: string }
   | { action: 'clear-conversation' }

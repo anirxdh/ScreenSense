@@ -6,7 +6,7 @@ import {
   saveApiKeys,
 } from '../shared/storage';
 import { DEFAULT_SETTINGS } from '../shared/constants';
-import { ExtensionSettings } from '../shared/types';
+import { ExtensionSettings, DisplayMode, ExplanationLevel } from '../shared/types';
 
 /* ─── Floating Orbs Background ─── */
 
@@ -177,6 +177,54 @@ const Settings: React.FC = () => {
                 <span>100ms</span>
                 <span>500ms</span>
               </div>
+            </div>
+
+            {/* Display Mode */}
+            <div className="field-group">
+              <label className="field-label">Display Mode</label>
+              <div className="toggle-group">
+                {([
+                  ['both', 'Text + Audio'],
+                  ['audio-only', 'Audio Only'],
+                  ['text-only', 'Text Only'],
+                ] as [DisplayMode, string][]).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    className={`toggle-btn${settings.displayMode === mode ? ' active' : ''}`}
+                    onClick={() => setSettings({ ...settings, displayMode: mode })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="field-hint">
+                Choose how responses are delivered — text overlay, spoken audio, or both
+              </p>
+            </div>
+
+            {/* Explanation Level */}
+            <div className="field-group">
+              <label className="field-label">Explanation Level</label>
+              <div className="toggle-group level-group">
+                {([
+                  ['kid', 'Kid'],
+                  ['school', 'Student'],
+                  ['college', 'College'],
+                  ['phd', 'PhD'],
+                  ['executive', 'Executive'],
+                ] as [ExplanationLevel, string][]).map(([level, label]) => (
+                  <button
+                    key={level}
+                    className={`toggle-btn${settings.explanationLevel === level ? ' active' : ''}`}
+                    onClick={() => setSettings({ ...settings, explanationLevel: level })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="field-hint">
+                Adjusts how detailed and technical the AI explanations are
+              </p>
             </div>
 
             {/* Divider */}
@@ -482,6 +530,42 @@ const Settings: React.FC = () => {
         .field-link:hover {
           color: #a5b4fc;
           text-decoration: underline;
+        }
+
+        /* ─── Toggle Group ─── */
+        .toggle-group {
+          display: flex;
+          gap: 6px;
+          background: rgba(255,255,255,0.02);
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 14px;
+          padding: 4px;
+        }
+        .level-group {
+          flex-wrap: wrap;
+        }
+        .toggle-btn {
+          flex: 1;
+          padding: 10px 8px;
+          background: transparent;
+          border: 1px solid transparent;
+          border-radius: 10px;
+          font-size: 13px;
+          font-weight: 500;
+          color: rgba(148, 163, 184, 0.5);
+          cursor: pointer;
+          transition: all 0.2s ease;
+          white-space: nowrap;
+        }
+        .toggle-btn:hover {
+          color: rgba(203, 213, 225, 0.7);
+          background: rgba(255,255,255,0.03);
+        }
+        .toggle-btn.active {
+          background: rgba(99, 102, 241, 0.15);
+          border-color: rgba(99, 102, 241, 0.3);
+          color: #a5b4fc;
+          font-weight: 600;
         }
 
         /* ─── Divider ─── */

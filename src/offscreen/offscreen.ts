@@ -32,7 +32,7 @@ async function startRecording(): Promise<void> {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (err) {
-    chrome.runtime.sendMessage({ action: 'offscreen-error', error: 'Microphone access denied' });
+    chrome.runtime.sendMessage({ action: 'offscreen-error', error: 'Microphone access denied' }).catch(() => {});
     return;
   }
 
@@ -68,10 +68,10 @@ async function startRecording(): Promise<void> {
     const data = new Uint8Array(analyser.frequencyBinCount);
     analyser.getByteFrequencyData(data);
     // Send as regular array (Uint8Array doesn't serialize well in chrome messages)
-    chrome.runtime.sendMessage({ action: 'offscreen-amplitude', data: Array.from(data) });
+    chrome.runtime.sendMessage({ action: 'offscreen-amplitude', data: Array.from(data) }).catch(() => {});
   }, 50);
 
-  chrome.runtime.sendMessage({ action: 'offscreen-started' });
+  chrome.runtime.sendMessage({ action: 'offscreen-started' }).catch(() => {});
 }
 
 async function stopRecording(): Promise<void> {
@@ -119,7 +119,7 @@ async function stopRecording(): Promise<void> {
     action: 'offscreen-recording-complete',
     audioBase64,
     mimeType: blob.type,
-  });
+  }).catch(() => {});
 }
 
 // Listen for commands from service worker

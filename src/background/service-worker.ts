@@ -1,9 +1,9 @@
 import { ExtensionState, IconState, MessageType, ConversationTurn, ConversationInfo } from '../shared/types';
-import { isMicPermissionGranted, getApiKeys } from '../shared/storage';
+import { isMicPermissionGranted, getApiKeys, getSettings } from '../shared/storage';
 import { MAX_CONVERSATION_TURNS } from '../shared/constants';
 import { captureScreenshot } from './screenshot';
 import { transcribeAudio } from './api/groq-stt';
-import { streamGeminiResponse } from './api/groq-vision';
+import { streamGeminiResponse, generateTtsSummary } from './api/groq-vision';
 
 let currentState: ExtensionState = 'idle';
 let latestScreenshot: string | undefined;
@@ -148,6 +148,9 @@ async function runPipeline(tabId: number, audioBase64: string, mimeType: string)
 
     sendToTab(tabId, { action: 'pipeline-stage', stage: 'thinking', transcript });
 
+    // Read settings for explanation level and display mode
+    const settings = await getSettings();
+
     // Stage 2: Streaming response with conversation history
     sendToTab(tabId, { action: 'pipeline-stage', stage: 'streaming' });
     const history = getConversation(tabId);
@@ -159,7 +162,8 @@ async function runPipeline(tabId: number, audioBase64: string, mimeType: string)
         transcript,
         keys.groqKey,
         (chunk: string) => sendToTab(tabId, { action: 'stream-chunk', text: chunk }),
-        history
+        history,
+        settings.explanationLevel
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Something went wrong — give it another try';
@@ -182,6 +186,13 @@ async function runPipeline(tabId: number, audioBase64: string, mimeType: string)
     sendToTab(tabId, { action: 'stream-complete', fullText });
     sendToTab(tabId, { action: 'pipeline-stage', stage: 'complete' });
     sendToTab(tabId, { action: 'conversation-info', info: getConversationInfo(tabId) });
+
+    // Generate TTS summary in background (fire-and-forget to avoid blocking follow-ups)
+    if (settings.displayMode !== 'text-only') {
+      generateTtsSummary(fullText, transcript, keys.groqKey).then((summary) => {
+        sendToTab(tabId, { action: 'tts-summary', summary });
+      }).catch(() => {});
+    }
   } catch (err) {
     console.error('[ScreenSense] Pipeline error:', err);
     sendToTab(tabId, { action: 'pipeline-error', error: 'Something went wrong — give it another try' });
@@ -212,6 +223,9 @@ async function runFollowUp(tabId: number, text: string): Promise<void> {
       return;
     }
 
+    // Read settings for explanation level and display mode
+    const settings = await getSettings();
+
     sendToTab(tabId, { action: 'pipeline-stage', stage: 'thinking', transcript: text });
     sendToTab(tabId, { action: 'pipeline-stage', stage: 'streaming' });
 
@@ -224,7 +238,8 @@ async function runFollowUp(tabId: number, text: string): Promise<void> {
         text,
         keys.groqKey,
         (chunk: string) => sendToTab(tabId, { action: 'stream-chunk', text: chunk }),
-        history
+        history,
+        settings.explanationLevel
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Something went wrong — give it another try';
@@ -243,6 +258,13 @@ async function runFollowUp(tabId: number, text: string): Promise<void> {
     sendToTab(tabId, { action: 'stream-complete', fullText });
     sendToTab(tabId, { action: 'pipeline-stage', stage: 'complete' });
     sendToTab(tabId, { action: 'conversation-info', info: getConversationInfo(tabId) });
+
+    // Generate TTS summary in background (fire-and-forget to avoid blocking follow-ups)
+    if (settings.displayMode !== 'text-only') {
+      generateTtsSummary(fullText, text, keys.groqKey).then((summary) => {
+        sendToTab(tabId, { action: 'tts-summary', summary });
+      }).catch(() => {});
+    }
   } catch (err) {
     console.error('[ScreenSense] Follow-up error:', err);
     sendToTab(tabId, { action: 'pipeline-error', error: 'Something went wrong — give it another try' });

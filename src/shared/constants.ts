@@ -4,6 +4,8 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   shortcutKey: '`',
   holdDelayMs: 200,
   maxRecordingMs: 60000,
+  displayMode: 'both',
+  explanationLevel: 'college',
 };
 
 export const STORAGE_KEYS = {

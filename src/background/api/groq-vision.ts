@@ -1,9 +1,18 @@
-import { ConversationTurn } from '../../shared/types';
+import { ConversationTurn, ExplanationLevel } from '../../shared/types';
 
 const GROQ_CHAT_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-const SYSTEM_PROMPT =
-  'You are ScreenSense, a helpful AI assistant. The user is looking at their screen and asking a question about what they see. Analyze the screenshot and answer their question concisely in 2-4 sentences or short bullet points. Be direct, specific, and helpful -- like a knowledgeable friend explaining something quickly. Do not add preamble like "Based on the screenshot" or "I can see that". When the user asks follow-up questions, use the conversation context to give relevant answers.';
+const LEVEL_INSTRUCTIONS: Record<ExplanationLevel, string> = {
+  kid: 'Explain things as if speaking to a 5-year-old child. Use very simple words, fun comparisons, and short sentences.',
+  school: 'Explain things as if speaking to a high school student. Use clear, straightforward language and relatable examples.',
+  college: 'Explain things as if speaking to a college student. Use appropriate technical terms when needed but keep it accessible.',
+  phd: 'Explain things at an advanced academic level. Use precise technical terminology and assume deep domain knowledge.',
+  executive: 'Explain things as if briefing a CTO or executive. Be concise, focus on impact, trade-offs, and strategic implications.',
+};
+
+function buildSystemPrompt(level: ExplanationLevel): string {
+  return `You are ScreenSense, a helpful AI assistant. The user is looking at their screen and asking a question about what they see. Analyze the screenshot and answer their question concisely in 2-4 sentences or short bullet points. Be direct, specific, and helpful. Do not add preamble like "Based on the screenshot" or "I can see that". When the user asks follow-up questions, use the conversation context to give relevant answers. ${LEVEL_INSTRUCTIONS[level]}`;
+}
 
 /**
  * Stream a multimodal response from Groq vision model given a screenshot, text query,
@@ -14,14 +23,15 @@ export async function streamGeminiResponse(
   query: string,
   apiKey: string,
   onChunk: (text: string) => void,
-  history: ConversationTurn[] = []
+  history: ConversationTurn[] = [],
+  explanationLevel: ExplanationLevel = 'college'
 ): Promise<string> {
   // Build messages array: system + history (text-only) + current turn (with image)
   const messages: Array<{
     role: 'system' | 'user' | 'assistant';
     content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
   }> = [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: buildSystemPrompt(explanationLevel) },
   ];
 
   // Add conversation history as text-only messages (no old screenshots to save context)
@@ -124,4 +134,49 @@ export async function streamGeminiResponse(
   }
 
   return fullText;
+}
+
+/**
+ * Generate a brief spoken summary (~3 seconds) of a response for TTS.
+ */
+export async function generateTtsSummary(
+  fullResponse: string,
+  userQuery: string,
+  apiKey: string
+): Promise<string> {
+  try {
+    const response = await fetch(GROQ_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a voice assistant. Given a question and its detailed answer, produce a brief spoken summary (1-2 short sentences, under 20 words). Be natural and conversational, as if quickly telling a friend the key takeaway. Output only the spoken text, no markdown or formatting.',
+          },
+          {
+            role: 'user',
+            content: `Question: "${userQuery}"\n\nAnswer: ${fullResponse}\n\nSpoken summary:`,
+          },
+        ],
+        temperature: 0.5,
+        max_tokens: 60,
+        stream: false,
+      }),
+    });
+
+    if (!response.ok) {
+      return fullResponse;
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content?.trim() || fullResponse;
+  } catch {
+    return fullResponse;
+  }
 }
