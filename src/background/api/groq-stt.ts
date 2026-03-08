@@ -40,7 +40,18 @@ export async function transcribeAudio(
     if (response.status === 401) {
       throw new Error('Check your API key in Settings');
     }
-    throw new Error("Couldn't catch that — try holding a bit longer");
+    let detail = '';
+    try {
+      const errBody = await response.json();
+      detail = errBody?.error?.message || JSON.stringify(errBody);
+    } catch {
+      detail = `HTTP ${response.status}`;
+    }
+    console.error('[ScreenSense] Groq STT error:', response.status, detail);
+    if (response.status === 429) {
+      throw new Error('Rate limit hit — wait a moment and try again');
+    }
+    throw new Error(`Couldn't catch that — ${detail}`);
   }
 
   const data = await response.json();
